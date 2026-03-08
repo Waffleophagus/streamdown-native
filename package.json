@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "build": "turbo run build",
-    "build:packages": "pnpm build --filter streamdown --filter @streamdown/math --filter @streamdown/code --filter @streamdown/cjk --filter @streamdown/mermaid",
+    "build:packages": "pnpm build --filter streamdown --filter @streamdown/core --filter @streamdown/react-native --filter @streamdown/code-native --filter @streamdown/math --filter @streamdown/code --filter @streamdown/cjk --filter @streamdown/mermaid",
     "dev": "turbo run dev",
     "check": "ultracite check",
     "fix": "ultracite fix",
@@ -25,13 +25,15 @@
     "typescript": "5.9.3",
     "ultracite": "7.2.4"
   },
-  "pnpm": {
-    "overrides": {
-      "lodash-es": ">=4.17.23"
-    }
-  },
   "packageManager": "pnpm@10.30.3",
   "engines": {
     "node": ">=18"
-  }
+  },
+  "overrides": {
+    "lodash-es": ">=4.17.23"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
 }
