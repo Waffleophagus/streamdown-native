@@ -15,7 +15,7 @@
     "changeset": "changeset",
     "changeset:version": "changeset version",
     "changeset:publish": "pnpm build && changeset publish",
-    "publish:packages": "bun ./scripts/publish-packages.mjs",
+    "publish:packages": "node ./scripts/publish-packages.mjs",
     "bench": "turbo run bench",
     "bench:ui": "turbo run bench:ui",
     "bump-deps": "npx npm-check-updates -u --deep -x \"recharts\" && pnpm i"

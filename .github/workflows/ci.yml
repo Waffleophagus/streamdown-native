@@ -24,10 +24,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
         with:
-          bun-version: latest
+          version: 10.30.3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
 
       - name: Setup npm auth for private registry
         if: env.PACKAGE_REGISTRY_TOKEN != ''
@@ -44,18 +50,17 @@ jobs:
           } >> "${HOME}/.npmrc"
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Build packages
-        run: bun run build:packages:ci
+        run: pnpm run build:packages:ci
 
       - name: Run tests
-        run: bun run test
+        run: pnpm run test
 
       - name: Check linting and formatting
-        run: bun run check
+        run: pnpm run check
 
       - name: Publish packages
         if: (github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')) && env.PACKAGE_REGISTRY_TOKEN != ''
-        run: bun run publish:packages
-
+        run: node ./scripts/publish-packages.mjs
