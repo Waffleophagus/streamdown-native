@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockIsNativeEngineAvailable = vi.hoisted(() => vi.fn(() => true));
-const mockCreateNativeEngine = vi.hoisted(() => vi.fn(() => ({ engine: "native" })));
+const mockCreateNativeEngine = vi.hoisted(() =>
+  vi.fn(() => ({ engine: "native" }))
+);
 const mockCodeToTokensBase = vi.hoisted(() =>
   vi.fn(async () => [[{ content: "const", color: "#ffffff" }]])
 );
@@ -97,30 +99,36 @@ describe("@streamdown/code-native", () => {
         }
 
         return {
-          codeToTokensBase: vi.fn(async (_code: string, { lang }: { lang: string }) => {
-            if (!loaded.has(lang)) {
-              throw new Error(`Language \`${lang}\` not found, you may need to load it first`);
+          codeToTokensBase: vi.fn(
+            (_code: string, { lang }: { lang: string }) => {
+              if (!loaded.has(lang)) {
+                throw new Error(
+                  `Language \`${lang}\` not found, you may need to load it first`
+                );
+              }
+              return mockCodeToTokensBase();
             }
-            return mockCodeToTokensBase();
-          }),
+          ),
         };
       };
     });
-    mockMakeSingletonHighlighter.mockImplementation((createHighlighter: any) => {
-      let singleton: any;
-      const loaded = new Set<string>();
-      return async (options: { langs: string[] }) => {
-        for (const lang of options.langs) {
-          loaded.add(lang);
-        }
-        if (!singleton) {
-          singleton = await createHighlighter(options);
-        } else {
-          await createHighlighter(options);
-        }
-        return singleton;
-      };
-    });
+    mockMakeSingletonHighlighter.mockImplementation(
+      (createHighlighter: any) => {
+        let singleton: any;
+        const loaded = new Set<string>();
+        return async (options: { langs: string[] }) => {
+          for (const lang of options.langs) {
+            loaded.add(lang);
+          }
+          if (singleton) {
+            await createHighlighter(options);
+          } else {
+            singleton = await createHighlighter(options);
+          }
+          return singleton;
+        };
+      }
+    );
   });
 
   it("throws when strict native engine is required but unavailable", async () => {
@@ -264,10 +272,12 @@ describe("@streamdown/code-native", () => {
   });
 
   it("handles highlighter failures without throwing from highlight", async () => {
-    mockCodeToTokensBase.mockImplementationOnce(async () => {
-      throw new Error("synthetic highlight failure");
-    });
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    mockCodeToTokensBase.mockImplementationOnce(() =>
+      Promise.reject(new Error("synthetic highlight failure"))
+    );
+    const errorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
     const { createNativeCodePlugin } = await import("../index");
     const plugin = createNativeCodePlugin({
       langs,

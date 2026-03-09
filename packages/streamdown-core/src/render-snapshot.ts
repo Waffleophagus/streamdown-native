@@ -47,21 +47,23 @@ const fencedCodeBlockRegex =
   /^(?<fence>`{3,}|~{3,})(?<language>[^\n`]*)\n(?<code>[\s\S]*?)\n\k<fence>\s*$/;
 
 export const hashStreamdownContent = (value: string): string => {
-  let hash = 2166136261;
+  let hash = 2_166_136_261;
   for (let index = 0; index < value.length; index += 1) {
+    // biome-ignore lint/suspicious/noBitwiseOperators: FNV-1a hash requires xor.
     hash ^= value.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
+    hash = Math.imul(hash, 16_777_619);
   }
+  // biome-ignore lint/suspicious/noBitwiseOperators: unsigned normalization for deterministic hash output.
   return (hash >>> 0).toString(16);
 };
 
 export const hashStreamdownCodeBlock = (
   language: string,
-  code: string,
+  code: string
 ): string => hashStreamdownContent(`${language}\u0000${code}`);
 
 export const extractStreamdownCodeBlockMetadata = (
-  block: string,
+  block: string
 ): ExtractedStreamdownCodeBlock | null => {
   const matched = block.match(fencedCodeBlockRegex);
   if (!matched?.groups) {
@@ -80,13 +82,14 @@ export const extractStreamdownCodeBlockMetadata = (
 };
 
 export const extractStreamdownCodeBlocks = (
-  input: ExtractStreamdownCodeBlocksOptions,
+  input: ExtractStreamdownCodeBlocksOptions
 ): ExtractedStreamdownCodeBlocks => {
   const normalizedMarkdown =
     input.parseIncompleteMarkdown === false
       ? input.markdown
       : remend(input.markdown, input.remendOptions);
-  const parseBlocks = input.parseMarkdownIntoBlocksFn ?? parseMarkdownIntoBlocks;
+  const parseBlocks =
+    input.parseMarkdownIntoBlocksFn ?? parseMarkdownIntoBlocks;
   const blocks = parseBlocks(normalizedMarkdown);
   const extractedCodeBlocks = blocks.flatMap((block, blockIndex) => {
     const metadata = extractStreamdownCodeBlockMetadata(block);

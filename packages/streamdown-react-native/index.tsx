@@ -1,3 +1,4 @@
+// biome-ignore-all lint/performance/noBarrelFile: package entrypoint intentionally re-exports public API.
 import type {
   RemendOptions,
   StreamdownCodeBlockSnapshot,
@@ -6,8 +7,8 @@ import type {
 import {
   extractStreamdownCodeBlockMetadata,
   hashStreamdownContent,
-  parseMarkdownIntoBlocks,
-  remend,
+  parseMarkdownIntoBlocks as parseMarkdownIntoBlocksCore,
+  remend as remendCore,
 } from "@streamdown/core";
 import type { ReactNode } from "react";
 import { memo, useEffect, useMemo, useState, useTransition } from "react";
@@ -21,12 +22,12 @@ import {
   type UrlTransform,
 } from "./lib/markdown-native";
 
-export { parseMarkdownIntoBlocks, remend };
-export type { CodeHighlighterPlugin } from "./lib/markdown-native";
 export type {
   StreamdownCodeBlockSnapshot,
   StreamdownRenderSnapshot,
 } from "@streamdown/core";
+export { parseMarkdownIntoBlocks, remend } from "@streamdown/core";
+export type { CodeHighlighterPlugin } from "./lib/markdown-native";
 
 export type StreamdownNativeMode = "streaming" | "static";
 export type StreamdownStaticCodeStrategy = "freeze" | "plain" | "highlight";
@@ -36,14 +37,15 @@ export type StreamdownFrozenSnapshot = StreamdownRenderSnapshot;
 export type StreamdownTheme = MarkdownNativeTheme;
 
 export interface StreamdownNativeProps {
-  animated?: boolean | AnimateOptions;
   allowElement?: AllowElement;
   allowedElements?: readonly string[];
+  animated?: boolean | AnimateOptions;
   children?: string;
   disallowedElements?: readonly string[];
   frozenSnapshot?: StreamdownRenderSnapshot;
   isAnimating?: boolean;
   mode?: StreamdownNativeMode;
+  onLinkPress?: (href: string) => void;
   parseIncompleteMarkdown?: boolean;
   parseMarkdownIntoBlocksFn?: (markdown: string) => string[];
   plugins?: {
@@ -53,7 +55,6 @@ export interface StreamdownNativeProps {
   renderSnapshot?: StreamdownRenderSnapshot;
   staticCodeStrategy?: StreamdownStaticCodeStrategy;
   theme?: StreamdownTheme;
-  onLinkPress?: (href: string) => void;
   unwrapDisallowed?: boolean;
   urlTransform?: UrlTransform;
 }
@@ -105,9 +106,9 @@ const Block = memo(
   }) => {
     return (
       <MarkdownNative
-        animated={animated}
         allowElement={allowElement}
         allowedElements={allowedElements}
+        animated={animated}
         codePlugin={codePlugin}
         content={content}
         disallowedElements={disallowedElements}
@@ -133,7 +134,7 @@ export const Streamdown = ({
   frozenSnapshot,
   isAnimating = false,
   parseIncompleteMarkdown = true,
-  parseMarkdownIntoBlocksFn = parseMarkdownIntoBlocks,
+  parseMarkdownIntoBlocksFn = parseMarkdownIntoBlocksCore,
   plugins,
   remend: remendOptions,
   renderSnapshot,
@@ -153,7 +154,7 @@ export const Streamdown = ({
       return "";
     }
     if (mode === "streaming" && parseIncompleteMarkdown) {
-      return remend(children, remendOptions);
+      return remendCore(children, remendOptions);
     }
     return children;
   }, [children, mode, parseIncompleteMarkdown, remendOptions]);
@@ -184,15 +185,21 @@ export const Streamdown = ({
   }, [blocks, isAnimating, mode]);
 
   const blocksToRender = mode === "streaming" ? displayBlocks : blocks;
-  const animatedOptions: AnimateOptions | undefined =
-    animated === true ? {} : animated === false ? undefined : animated;
+  let animatedOptions: AnimateOptions | undefined;
+  if (animated === true) {
+    animatedOptions = {};
+  } else if (animated === false) {
+    animatedOptions = undefined;
+  } else {
+    animatedOptions = animated;
+  }
 
   const handleLinkPress = (href: string) => {
     if (onLinkPress) {
       onLinkPress(href);
       return;
     }
-    void Linking.openURL(href);
+    Linking.openURL(href).catch(() => undefined);
   };
 
   const snapshotBlocksByIndex = useMemo(() => {
@@ -218,15 +225,15 @@ export const Streamdown = ({
 
         return (
           <Block
-            animated={animatedOptions}
             allowElement={allowElement}
             allowedElements={allowedElements}
+            animated={animatedOptions}
             codePlugin={plugins?.code}
             content={block}
             disallowedElements={disallowedElements}
             frozenCodeBlock={validSnapshotBlock}
-            key={`block-${index}`}
             isAnimating={isAnimating}
+            key={metadata?.codeHash ?? hashStreamdownContent(block)}
             mode={mode}
             onLinkPress={handleLinkPress}
             staticCodeStrategy={staticCodeStrategy}

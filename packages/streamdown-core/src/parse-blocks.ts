@@ -46,7 +46,10 @@ const getCloseTagPattern = (tagName: string): RegExp => {
   return pattern;
 };
 
-const countNonSelfClosingOpenTags = (block: string, tagName: string): number => {
+const countNonSelfClosingOpenTags = (
+  block: string,
+  tagName: string
+): number => {
   if (voidElements.has(tagName.toLowerCase())) {
     return 0;
   }
@@ -79,6 +82,7 @@ const countDoubleDollars = (str: string): number => {
   return count;
 };
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: parser correctness depends on single-pass token merging logic.
 export const parseMarkdownIntoBlocks = (markdown: string): string[] => {
   const hasFootnoteReference = footnoteReferencePattern.test(markdown);
   const hasFootnoteDefinition = footnoteDefinitionPattern.test(markdown);

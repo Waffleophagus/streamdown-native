@@ -1,11 +1,12 @@
+// biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: markdown rendering uses a comprehensive tag switch.
 import type { Element, Parents, Root, Text } from "hast";
 import type { ReactNode } from "react";
 import { memo, useEffect, useMemo, useState } from "react";
 import {
   Image as RNImage,
+  Text as RNText,
   ScrollView,
   StyleSheet,
-  Text as RNText,
   View,
 } from "react-native";
 import Animated, { Easing, FadeIn, SlideInUp } from "react-native-reanimated";
@@ -18,13 +19,13 @@ import { unified } from "unified";
 interface RenderContext {
   allowElement?: AllowElement;
   allowedElements?: readonly string[];
-  disallowedElements?: readonly string[];
-  frozenCodeBlock?: FrozenCodeBlock;
-  keyPrefix: string;
-  listIndex?: number;
   animated?: AnimateOptions;
   codePlugin?: CodeHighlighterPlugin;
+  disallowedElements?: readonly string[];
+  frozenCodeBlock?: FrozenCodeBlock;
   isAnimating?: boolean;
+  keyPrefix: string;
+  listIndex?: number;
   mode?: "streaming" | "static";
   onLinkPress?: (href: string) => void;
   parentTag?: string;
@@ -48,8 +49,8 @@ export interface CodeHighlightOptions {
 }
 
 export interface CodeHighlightToken {
-  content: string;
   color?: string;
+  content: string;
 }
 
 export interface CodeHighlightResult {
@@ -96,12 +97,10 @@ export type UrlTransform = (
   node: Readonly<Element>
 ) => string | null | undefined;
 
-const processor = unified()
-  .use(remarkParse)
-  .use(remarkGfm)
-  .use(remarkRehype);
+const processor = unified().use(remarkParse).use(remarkGfm).use(remarkRehype);
 
 const whitespaceOnlyRegex = /^\s+$/;
+const whitespaceCharRegex = /\s/;
 const animationSkipTags = new Set(["code", "pre", "svg", "math", "annotation"]);
 
 const splitByWord = (text: string): string[] => {
@@ -110,7 +109,7 @@ const splitByWord = (text: string): string[] => {
   let inWhitespace = false;
 
   for (const char of text) {
-    const isWhitespace = /\s/.test(char);
+    const isWhitespace = whitespaceCharRegex.test(char);
     if (isWhitespace !== inWhitespace && current) {
       parts.push(current);
       current = "";
@@ -131,7 +130,7 @@ const splitByChar = (text: string): string[] => {
   let whitespaceBuffer = "";
 
   for (const char of text) {
-    if (/\s/.test(char)) {
+    if (whitespaceCharRegex.test(char)) {
       whitespaceBuffer += char;
     } else {
       if (whitespaceBuffer) {
@@ -155,6 +154,15 @@ const countAnimatableTokens = (parts: string[]) =>
     0
   );
 
+const createKeyGenerator = (prefix: string) => {
+  const seen = new Map<string, number>();
+  return (base: string): string => {
+    const count = seen.get(base) ?? 0;
+    seen.set(base, count + 1);
+    return `${prefix}-${base}-${count}`;
+  };
+};
+
 export const __testUtils = {
   countAnimatableTokens,
   splitByChar,
@@ -177,17 +185,13 @@ const mapEasing = (easing: string | undefined) => {
 };
 
 const AnimatedToken = memo(
-  ({
-    text,
-    options,
-  }: {
-    options: Required<AnimateOptions>;
-    text: string;
-  }) => {
+  ({ text, options }: { options: Required<AnimateOptions>; text: string }) => {
     const easing = mapEasing(options.easing);
     if (options.animation === "slideUp") {
       return (
-        <Animated.Text entering={SlideInUp.duration(options.duration).easing(easing)}>
+        <Animated.Text
+          entering={SlideInUp.duration(options.duration).easing(easing)}
+        >
           {text}
         </Animated.Text>
       );
@@ -195,7 +199,9 @@ const AnimatedToken = memo(
 
     // `blurIn` gracefully degrades to `fadeIn` in the baseline RN path.
     return (
-      <Animated.Text entering={FadeIn.duration(options.duration).easing(easing)}>
+      <Animated.Text
+        entering={FadeIn.duration(options.duration).easing(easing)}
+      >
         {text}
       </Animated.Text>
     );
@@ -211,7 +217,9 @@ const resolveClassName = (classNameValue: unknown): string => {
     return classNameValue;
   }
   if (Array.isArray(classNameValue)) {
-    return classNameValue.filter((value) => typeof value === "string").join(" ");
+    return classNameValue
+      .filter((value) => typeof value === "string")
+      .join(" ");
   }
   return "";
 };
@@ -267,34 +275,34 @@ const HighlightedCodeBlock = memo(
       if (cached?.tokens) {
         setTokens(cached.tokens);
       }
-    }, [
-      codePlugin,
-      code,
-      frozenCodeBlock,
-      language,
-      mode,
-      staticCodeStrategy,
-    ]);
+    }, [codePlugin, code, frozenCodeBlock, language, mode, staticCodeStrategy]);
 
     if (!tokens) {
       return <RNText style={styles.codeBlockText}>{code}</RNText>;
     }
 
+    const nextRowKey = createKeyGenerator("row");
     return (
       <RNText style={styles.codeBlockText}>
-        {tokens.map((row, rowIndex) => (
-          <RNText key={`row-${rowIndex}`}>
-            {row.map((token, tokenIndex) => (
-              <RNText
-                key={`token-${rowIndex}-${tokenIndex}`}
-                style={token.color ? { color: token.color } : undefined}
-              >
-                {token.content}
-              </RNText>
-            ))}
-            {"\n"}
-          </RNText>
-        ))}
+        {tokens.map((row) => {
+          const nextTokenKey = createKeyGenerator("token");
+          const rowBase = row
+            .map((token) => `${token.color ?? ""}:${token.content}`)
+            .join("|");
+          return (
+            <RNText key={nextRowKey(rowBase)}>
+              {row.map((token) => (
+                <RNText
+                  key={nextTokenKey(`${token.color ?? ""}:${token.content}`)}
+                  style={token.color ? { color: token.color } : undefined}
+                >
+                  {token.content}
+                </RNText>
+              ))}
+              {"\n"}
+            </RNText>
+          );
+        })}
       </RNText>
     );
   }
@@ -302,7 +310,7 @@ const HighlightedCodeBlock = memo(
 
 HighlightedCodeBlock.displayName = "HighlightedCodeBlock";
 
-const toString = (node: unknown): string => {
+const stringifyNode = (node: unknown): string => {
   if (!node || typeof node !== "object") {
     return "";
   }
@@ -317,7 +325,7 @@ const toString = (node: unknown): string => {
   if (!typed.children?.length) {
     return "";
   }
-  return typed.children.map(toString).join("");
+  return typed.children.map(stringifyNode).join("");
 };
 
 const renderTextChildren = (children: ReactNode[]): ReactNode =>
@@ -327,8 +335,9 @@ const renderViewChildren = (
   children: ReactNode[],
   keyPrefix: string,
   styles: ReturnType<typeof createStyles>
-): ReactNode[] =>
-  children.reduce<ReactNode[]>((result, child, index) => {
+): ReactNode[] => {
+  const nextKey = createKeyGenerator(`${keyPrefix}-text`);
+  return children.reduce<ReactNode[]>((result, child) => {
     if (typeof child !== "string") {
       result.push(child);
       return result;
@@ -337,12 +346,13 @@ const renderViewChildren = (
       return result;
     }
     result.push(
-      <RNText key={`${keyPrefix}-text-${index}`} style={styles.paragraph}>
+      <RNText key={nextKey(child)} style={styles.paragraph}>
         {child}
       </RNText>
     );
     return result;
   }, []);
+};
 
 const renderChildren = (
   node: Root | Element,
@@ -386,21 +396,20 @@ const renderNode = (
     };
 
     const parts =
-      options.sep === "char" ? splitByChar(node.value) : splitByWord(node.value);
+      options.sep === "char"
+        ? splitByChar(node.value)
+        : splitByWord(node.value);
     if (countAnimatableTokens(parts) > options.maxAnimatedTokens) {
       return node.value;
     }
 
-    return parts.map((part, index) => {
+    const nextTokenKey = createKeyGenerator(`${context.keyPrefix}-token`);
+    return parts.map((part) => {
       if (whitespaceOnlyRegex.test(part)) {
         return part;
       }
       return (
-        <AnimatedToken
-          key={`${context.keyPrefix}-token-${index}`}
-          options={options}
-          text={part}
-        />
+        <AnimatedToken key={nextTokenKey(part)} options={options} text={part} />
       );
     });
   }
@@ -461,7 +470,7 @@ const renderNode = (
       const hrefValue = node.properties?.href;
       const hrefRaw = hrefValue ? String(hrefValue) : "";
       const href = context.urlTransform
-        ? context.urlTransform(hrefRaw, "href", node) ?? ""
+        ? (context.urlTransform(hrefRaw, "href", node) ?? "")
         : hrefRaw;
       return (
         <RNText
@@ -481,7 +490,7 @@ const renderNode = (
       const srcValue = node.properties?.src;
       const srcRaw = srcValue ? String(srcValue) : "";
       const src = context.urlTransform
-        ? context.urlTransform(srcRaw, "src", node) ?? ""
+        ? (context.urlTransform(srcRaw, "src", node) ?? "")
         : srcRaw;
       if (!src) {
         return null;
@@ -515,7 +524,7 @@ const renderNode = (
       if (!isInline) {
         return (
           <HighlightedCodeBlock
-            code={toString(node)}
+            code={stringifyNode(node)}
             codePlugin={context.codePlugin}
             frozenCodeBlock={context.frozenCodeBlock}
             key={key}
@@ -528,7 +537,7 @@ const renderNode = (
       }
       return (
         <RNText key={key} style={styles.inlineCode}>
-          {toString(node)}
+          {stringifyNode(node)}
         </RNText>
       );
     }
@@ -541,7 +550,11 @@ const renderNode = (
           style={styles.codeBlockWrapper}
         >
           <View style={styles.codeBlock}>
-            {children.length ? children : <RNText style={styles.codeBlockText} />}
+            {children.length ? (
+              children
+            ) : (
+              <RNText style={styles.codeBlockText} />
+            )}
           </View>
         </ScrollView>
       );
@@ -577,7 +590,9 @@ const renderNode = (
     case "table":
       return (
         <ScrollView horizontal={true} key={key} style={styles.tableScroll}>
-          <View style={styles.table}>{renderViewChildren(children, key, styles)}</View>
+          <View style={styles.table}>
+            {renderViewChildren(children, key, styles)}
+          </View>
         </ScrollView>
       );
     case "thead":
@@ -596,13 +611,13 @@ const renderNode = (
     case "th":
       return (
         <RNText key={key} style={styles.tableHeaderCell}>
-          {toString(node)}
+          {stringifyNode(node)}
         </RNText>
       );
     case "td":
       return (
         <RNText key={key} style={styles.tableCell}>
-          {toString(node)}
+          {stringifyNode(node)}
         </RNText>
       );
     default:
@@ -620,10 +635,10 @@ const renderNode = (
 export interface MarkdownNativeProps {
   allowElement?: AllowElement;
   allowedElements?: readonly string[];
-  content: string;
-  disallowedElements?: readonly string[];
   animated?: AnimateOptions;
   codePlugin?: CodeHighlighterPlugin;
+  content: string;
+  disallowedElements?: readonly string[];
   frozenCodeBlock?: FrozenCodeBlock;
   isAnimating?: boolean;
   mode?: "streaming" | "static";

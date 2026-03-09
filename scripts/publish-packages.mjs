@@ -1,6 +1,6 @@
+import { spawnSync } from "node:child_process";
 import { readFileSync, statSync } from "node:fs";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
 
 const root = new URL("..", import.meta.url).pathname;
 const packagesDir = path.join(root, "packages");
@@ -37,7 +37,9 @@ for (const packageDir of publishOrder) {
     continue;
   }
 
-  const pkg = JSON.parse(readFileSync(path.join(fullDir, "package.json"), "utf8"));
+  const pkg = JSON.parse(
+    readFileSync(path.join(fullDir, "package.json"), "utf8")
+  );
   if (pkg.private) {
     continue;
   }

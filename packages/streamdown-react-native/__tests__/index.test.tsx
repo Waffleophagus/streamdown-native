@@ -20,15 +20,19 @@ describe("@streamdown/react-native", () => {
 
   it("splits text by word and char for animation tokenization", async () => {
     const { __testUtils } = await import("../lib/markdown-native");
-    expect(__testUtils.splitByWord("alpha beta")).toEqual(["alpha", " ", "beta"]);
+    expect(__testUtils.splitByWord("alpha beta")).toEqual([
+      "alpha",
+      " ",
+      "beta",
+    ]);
     expect(__testUtils.splitByChar("ab  c")).toEqual(["a", "b", "  ", "c"]);
   });
 
   it("counts only non-whitespace animation tokens", async () => {
     const { __testUtils } = await import("../lib/markdown-native");
-    expect(__testUtils.countAnimatableTokens(["alpha", " ", "beta", "\n"])).toBe(
-      2
-    );
+    expect(
+      __testUtils.countAnimatableTokens(["alpha", " ", "beta", "\n"])
+    ).toBe(2);
   });
 
   it("applies allow/disallow element filtering rules", async () => {

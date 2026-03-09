@@ -1,6 +1,6 @@
-import remend from "remend";
-
+// biome-ignore-all lint/performance/noBarrelFile: package entrypoint intentionally re-exports public API.
 export type { RemendHandler, RemendOptions } from "remend";
+export { default as remend } from "remend";
 export { parseMarkdownIntoBlocks } from "./parse-blocks";
 export type {
   ExtractedStreamdownCodeBlock,
@@ -16,4 +16,3 @@ export {
   hashStreamdownCodeBlock,
   hashStreamdownContent,
 } from "./render-snapshot";
-export { remend };

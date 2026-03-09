@@ -298,7 +298,7 @@ export function createServerCodeHighlighter(
     getThemes(): [ThemeInput, ThemeInput] {
       return defaultThemes;
     },
-    async highlightCode({
+    highlightCode({
       code,
       language,
       themes = defaultThemes,

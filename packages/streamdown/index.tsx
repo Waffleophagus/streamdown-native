@@ -849,8 +849,7 @@ export const Streamdown = memo(
                       isAnimating &&
                       isLastBlock &&
                       hasIncompleteCodeFence(block);
-                    const metadata =
-                      extractStreamdownCodeBlockMetadata(block);
+                    const metadata = extractStreamdownCodeBlockMetadata(block);
                     const snapshotBlock = snapshotBlocksByIndex.get(index);
                     const validSnapshotBlock =
                       metadata &&
@@ -872,8 +871,8 @@ export const Streamdown = memo(
                         isIncomplete={isIncomplete}
                         key={blockKeys[index]}
                         rehypePlugins={mergedRehypePlugins}
-                        renderSnapshotBlock={validSnapshotBlock}
                         remarkPlugins={mergedRemarkPlugins}
+                        renderSnapshotBlock={validSnapshotBlock}
                         shouldNormalizeHtmlIndentation={
                           shouldNormalizeHtmlIndentation
                         }

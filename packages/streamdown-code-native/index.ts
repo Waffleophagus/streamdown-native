@@ -1,9 +1,12 @@
-import { createBundledHighlighter, makeSingletonHighlighter } from "@shikijs/core";
-import * as shikiLangs from "shiki/langs";
+import {
+  createBundledHighlighter,
+  makeSingletonHighlighter,
+} from "@shikijs/core";
 import {
   createNativeEngine,
   isNativeEngineAvailable,
 } from "react-native-shiki-engine";
+import { bundledLanguages } from "shiki/langs";
 
 export interface HighlightToken {
   bgColor?: string;
@@ -45,8 +48,8 @@ export type LanguageInput =
   | { default: unknown };
 
 export interface CodePluginOptions {
-  languageAliases?: Record<string, string>;
   langs: LanguageInput[];
+  languageAliases?: Record<string, string>;
   strictNativeEngine?: boolean;
   themes: ThemeInput[];
 }
@@ -75,8 +78,9 @@ interface LanguageGrammar {
   scopeName?: string;
 }
 
-const bundledLanguageLoaders = (shikiLangs as { bundledLanguages?: unknown })
-  .bundledLanguages as Record<string, unknown> | undefined;
+const bundledLanguageLoaders = bundledLanguages as
+  | Record<string, unknown>
+  | undefined;
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === "object";
@@ -95,6 +99,7 @@ const getLanguageId = (lang: unknown): string => {
   return typeof id === "string" ? id.toLowerCase() : "";
 };
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: recursive normalization across multiple accepted grammar shapes.
 const collectSupportedLanguages = (set: Set<string>, input: unknown): void => {
   if (Array.isArray(input)) {
     for (const item of input) {
@@ -286,10 +291,8 @@ export function createNativeCodePlugin(
   }
 
   const supportedLanguages = new Set<string>();
-  for (const [index, input] of langs.entries()) {
+  for (const input of langs) {
     collectSupportedLanguages(supportedLanguages, input);
-    const ids = new Set<string>();
-    collectInputLanguageIds(ids, input);
   }
   const themeNames = themes.map((theme, index) =>
     getThemeName(theme, `theme-${index}`)
@@ -317,8 +320,8 @@ export function createNativeCodePlugin(
   );
   const createHighlighter = createBundledHighlighter({
     engine: () => engine,
-    langs: bundledLangMap as any,
-    themes: bundledThemeMap as any,
+    langs: bundledLangMap as Record<string, unknown>,
+    themes: bundledThemeMap as Record<string, unknown>,
   });
   const getHighlighter = makeSingletonHighlighter(createHighlighter);
   const tokenCache = new Map<string, HighlightResult>();
@@ -337,7 +340,10 @@ export function createNativeCodePlugin(
     const logKey = `${languageToUse}:${message}`;
     if (!reportedErrors.has(logKey)) {
       reportedErrors.add(logKey);
-      console.error("[@streamdown/code-native] Failed to highlight code:", error);
+      console.error(
+        "[@streamdown/code-native] Failed to highlight code:",
+        error
+      );
     }
   };
 
@@ -397,12 +403,19 @@ export function createNativeCodePlugin(
     getThemes: () => themeNames,
     supportsLanguage: (language: string) =>
       supportedLanguages.has(normalizeLanguage(language)),
-    async freeze({ code, language }: HighlightOptions): Promise<HighlightResult | null> {
+    async freeze({
+      code,
+      language,
+    }: HighlightOptions): Promise<HighlightResult | null> {
       const normalizedLanguage = normalizeLanguage(language);
       if (!supportedLanguages.has(normalizedLanguage)) {
         return null;
       }
-      const cacheKey = createTokenCacheKey(code, normalizedLanguage, primaryTheme);
+      const cacheKey = createTokenCacheKey(
+        code,
+        normalizedLanguage,
+        primaryTheme
+      );
       try {
         return await loadTokens(code, normalizedLanguage, cacheKey);
       } catch (error) {
@@ -433,7 +446,7 @@ export function createNativeCodePlugin(
         subscribers.get(cacheKey)?.add(callback);
       }
 
-      void loadTokens(code, languageToUse, cacheKey)
+      loadTokens(code, languageToUse, cacheKey)
         .then((result) => {
           const queued = subscribers.get(cacheKey);
           if (queued) {
