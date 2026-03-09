@@ -71,6 +71,18 @@ export interface CodePluginOptions {
   themes?: [ThemeInput, ThemeInput];
 }
 
+export interface ServerHighlightOptions {
+  code: string;
+  language: string;
+  themes?: [ThemeInput, ThemeInput];
+}
+
+export interface ServerCodeHighlighter {
+  getThemes: () => [ThemeInput, ThemeInput];
+  highlightCode: (options: ServerHighlightOptions) => Promise<HighlightResult>;
+  supportsLanguage: (language: string) => boolean;
+}
+
 const languageAliases = Object.fromEntries(
   bundledLanguagesInfo.flatMap((info) =>
     (info.aliases ?? []).map((alias) => [alias, info.id as BundledLanguage])
@@ -147,6 +159,44 @@ const getHighlighter = (
   return highlighterPromise;
 };
 
+const highlightWithHighlighter = async (
+  code: string,
+  language: string,
+  themes: [ThemeInput, ThemeInput]
+): Promise<TokensResult> => {
+  const resolvedLanguage = normalizeLanguage(language);
+  const themeNames: [string, string] = [
+    getThemeName(themes[0]),
+    getThemeName(themes[1]),
+  ];
+  const tokensCacheKey = getTokensCacheKey(code, resolvedLanguage, themeNames);
+
+  if (tokensCache.has(tokensCacheKey)) {
+    return tokensCache.get(tokensCacheKey) as TokensResult;
+  }
+
+  const highlighter = await getHighlighter(
+    resolvedLanguage as BundledLanguage,
+    themes
+  );
+  const availableLangs = highlighter.getLoadedLanguages();
+  const langToUse = (
+    availableLangs.includes(resolvedLanguage as BundledLanguage)
+      ? (resolvedLanguage as BundledLanguage)
+      : "text"
+  ) as BundledLanguage | SpecialLanguage;
+
+  const result = highlighter.codeToTokens(code, {
+    lang: langToUse,
+    themes: {
+      light: themeNames[0],
+      dark: themeNames[1],
+    },
+  });
+  tokensCache.set(tokensCacheKey, result);
+  return result;
+};
+
 /**
  * Create a code plugin with optional configuration
  */
@@ -207,23 +257,8 @@ export function createCodePlugin(
       }
 
       // Start highlighting in background
-      getHighlighter(resolvedLanguage as BundledLanguage, themes)
-        .then((highlighter) => {
-          const availableLangs = highlighter.getLoadedLanguages();
-          const langToUse = (
-            availableLangs.includes(resolvedLanguage as BundledLanguage)
-              ? (resolvedLanguage as BundledLanguage)
-              : "text"
-          ) as BundledLanguage | SpecialLanguage;
-
-          const result = highlighter.codeToTokens(code, {
-            lang: langToUse,
-            themes: {
-              light: themeNames[0],
-              dark: themeNames[1],
-            },
-          });
-
+      highlightWithHighlighter(code, resolvedLanguage, themes)
+        .then((result) => {
           // Cache the result
           tokensCache.set(tokensCacheKey, result);
 
@@ -250,3 +285,29 @@ export function createCodePlugin(
  * Pre-configured code plugin with default settings
  */
 export const code = createCodePlugin();
+
+export function createServerCodeHighlighter(
+  options: CodePluginOptions = {}
+): ServerCodeHighlighter {
+  const defaultThemes: [ThemeInput, ThemeInput] = options.themes ?? [
+    "github-light",
+    "github-dark",
+  ];
+
+  return {
+    getThemes(): [ThemeInput, ThemeInput] {
+      return defaultThemes;
+    },
+    async highlightCode({
+      code,
+      language,
+      themes = defaultThemes,
+    }: ServerHighlightOptions): Promise<HighlightResult> {
+      return highlightWithHighlighter(code, language, themes);
+    },
+    supportsLanguage(language: string): boolean {
+      const resolvedLanguage = normalizeLanguage(language);
+      return languageNames.has(resolvedLanguage as BundledLanguage);
+    },
+  };
+}

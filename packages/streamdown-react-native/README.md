@@ -20,7 +20,7 @@ Implemented in baseline:
 ## Install (pnpm)
 
 ```bash
-pnpm add @streamdown/react-native react-native-reanimated react-native-url-polyfill
+pnpm add @streamdown/react-native react-native-reanimated@~4.0.1 react-native-worklets@0.5.1 react-native-url-polyfill
 ```
 
 Optional native code highlighting plugin:

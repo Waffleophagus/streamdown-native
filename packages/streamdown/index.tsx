@@ -1,5 +1,13 @@
 "use client";
 
+import type {
+  StreamdownCodeBlockSnapshot,
+  StreamdownRenderSnapshot,
+} from "@streamdown/core";
+import {
+  extractStreamdownCodeBlockMetadata,
+  hashStreamdownContent,
+} from "@streamdown/core";
 import type { MermaidConfig } from "mermaid";
 import {
   type ComponentProps,
@@ -26,6 +34,7 @@ import {
   createAnimatePlugin,
 } from "./lib/animate";
 import { BlockIncompleteContext } from "./lib/block-incomplete-context";
+import { BlockSnapshotContext } from "./lib/block-snapshot-context";
 import { components as defaultComponents } from "./lib/components";
 import { detectTextDirection } from "./lib/detect-direction";
 import { type IconMap, IconProvider } from "./lib/icon-context";
@@ -195,6 +204,7 @@ export type StreamdownProps = Options & {
   normalizeHtmlIndentation?: boolean;
   className?: string;
   shikiTheme?: [ThemeInput, ThemeInput];
+  renderSnapshot?: StreamdownRenderSnapshot;
   mermaid?: MermaidOptions;
   controls?: ControlsConfig;
   isAnimating?: boolean;
@@ -308,6 +318,7 @@ export type BlockProps = Options & {
   dir?: "ltr" | "rtl";
   /** Animate plugin instance for tracking previous content length */
   animatePlugin?: AnimatePlugin | null;
+  renderSnapshotBlock?: StreamdownCodeBlockSnapshot;
 };
 
 export const Block = memo(
@@ -320,6 +331,7 @@ export const Block = memo(
     isIncomplete,
     dir,
     animatePlugin: animatePluginProp,
+    renderSnapshotBlock,
     ...props
   }: BlockProps) => {
     // Tell the animate plugin how many HAST characters were already rendered
@@ -346,13 +358,15 @@ export const Block = memo(
 
     return (
       <BlockIncompleteContext.Provider value={isIncomplete}>
-        {dir ? (
-          <div dir={dir} style={{ display: "contents" }}>
-            {inner}
-          </div>
-        ) : (
-          inner
-        )}
+        <BlockSnapshotContext.Provider value={renderSnapshotBlock}>
+          {dir ? (
+            <div dir={dir} style={{ display: "contents" }}>
+              {inner}
+            </div>
+          ) : (
+            inner
+          )}
+        </BlockSnapshotContext.Provider>
       </BlockIncompleteContext.Provider>
     );
   },
@@ -418,6 +432,19 @@ const defaultShikiTheme: [ThemeInput, ThemeInput] = [
   "github-dark",
 ];
 
+const normalizeSnapshot = (
+  snapshot: StreamdownRenderSnapshot | undefined,
+  contentHash: string
+): StreamdownRenderSnapshot | undefined => {
+  if (!snapshot) {
+    return undefined;
+  }
+  if (snapshot.version !== 1 || snapshot.contentHash !== contentHash) {
+    return undefined;
+  }
+  return snapshot;
+};
+
 export const Streamdown = memo(
   ({
     children,
@@ -430,6 +457,7 @@ export const Streamdown = memo(
     remarkPlugins = defaultRemarkPluginsArray,
     className,
     shikiTheme = defaultShikiTheme,
+    renderSnapshot,
     mermaid,
     controls = true,
     isAnimating = false,
@@ -536,6 +564,14 @@ export const Streamdown = memo(
       () => parseMarkdownIntoBlocksFn(processedChildren),
       [processedChildren, parseMarkdownIntoBlocksFn]
     );
+    const contentHash = useMemo(
+      () => hashStreamdownContent(processedChildren),
+      [processedChildren]
+    );
+    const activeSnapshot = useMemo(
+      () => normalizeSnapshot(renderSnapshot, contentHash),
+      [contentHash, renderSnapshot]
+    );
 
     // Initialize displayBlocks with blocks to avoid hydration mismatch
     // Previously initialized as [] which caused content to flicker on hydration
@@ -572,6 +608,13 @@ export const Streamdown = memo(
       () => blocksToRender.map((_block, idx) => `${generatedId}-${idx}`),
       [blocksToRender.length, generatedId]
     );
+    const snapshotBlocksByIndex = useMemo(() => {
+      const entries = new Map<number, StreamdownCodeBlockSnapshot>();
+      for (const block of activeSnapshot?.codeBlocks ?? []) {
+        entries.set(block.blockIndex, block);
+      }
+      return entries;
+    }, [activeSnapshot]);
 
     // Stable key derived from animated option values. This prevents the
     // plugin from being recreated when the user passes an inline object
@@ -745,7 +788,7 @@ export const Streamdown = memo(
     );
 
     // Static mode: simple rendering without streaming features
-    if (mode === "static") {
+    if (mode === "static" && !activeSnapshot) {
       return (
         <TranslationsContext.Provider value={translationsValue}>
           <PluginContext.Provider value={plugins ?? null}>
@@ -806,6 +849,16 @@ export const Streamdown = memo(
                       isAnimating &&
                       isLastBlock &&
                       hasIncompleteCodeFence(block);
+                    const metadata =
+                      extractStreamdownCodeBlockMetadata(block);
+                    const snapshotBlock = snapshotBlocksByIndex.get(index);
+                    const validSnapshotBlock =
+                      metadata &&
+                      snapshotBlock &&
+                      snapshotBlock.codeHash === metadata.codeHash &&
+                      snapshotBlock.language === metadata.language
+                        ? snapshotBlock
+                        : undefined;
                     return (
                       <BlockComponent
                         animatePlugin={animatePlugin}
@@ -819,6 +872,7 @@ export const Streamdown = memo(
                         isIncomplete={isIncomplete}
                         key={blockKeys[index]}
                         rehypePlugins={mergedRehypePlugins}
+                        renderSnapshotBlock={validSnapshotBlock}
                         remarkPlugins={mergedRemarkPlugins}
                         shouldNormalizeHtmlIndentation={
                           shouldNormalizeHtmlIndentation
@@ -845,6 +899,7 @@ export const Streamdown = memo(
     prevProps.animated === nextProps.animated &&
     prevProps.mode === nextProps.mode &&
     prevProps.plugins === nextProps.plugins &&
+    prevProps.renderSnapshot === nextProps.renderSnapshot &&
     prevProps.className === nextProps.className &&
     prevProps.linkSafety === nextProps.linkSafety &&
     prevProps.normalizeHtmlIndentation === nextProps.normalizeHtmlIndentation &&

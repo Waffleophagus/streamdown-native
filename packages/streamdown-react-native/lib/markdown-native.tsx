@@ -19,13 +19,17 @@ interface RenderContext {
   allowElement?: AllowElement;
   allowedElements?: readonly string[];
   disallowedElements?: readonly string[];
+  frozenCodeBlock?: FrozenCodeBlock;
   keyPrefix: string;
   listIndex?: number;
   animated?: AnimateOptions;
   codePlugin?: CodeHighlighterPlugin;
   isAnimating?: boolean;
+  mode?: "streaming" | "static";
   onLinkPress?: (href: string) => void;
   parentTag?: string;
+  staticCodeStrategy?: "freeze" | "plain" | "highlight";
+  styles: ReturnType<typeof createStyles>;
   unwrapDisallowed?: boolean;
   urlTransform?: UrlTransform;
 }
@@ -52,11 +56,32 @@ export interface CodeHighlightResult {
   tokens: CodeHighlightToken[][];
 }
 
+export interface FrozenCodeBlock {
+  language: string;
+  tokens: CodeHighlightToken[][];
+}
+
 export interface CodeHighlighterPlugin {
   highlight: (
     options: CodeHighlightOptions,
     callback?: (result: CodeHighlightResult) => void
   ) => CodeHighlightResult | null;
+}
+
+export interface MarkdownNativeTheme {
+  blockquoteBorderColor?: string;
+  codeBlockBackgroundColor?: string;
+  codeBlockBorderColor?: string;
+  codeTextColor?: string;
+  imageBackgroundColor?: string;
+  inlineCodeBackgroundColor?: string;
+  inlineCodeTextColor?: string;
+  linkColor?: string;
+  mutedTextColor?: string;
+  ruleColor?: string;
+  tableBorderColor?: string;
+  tableHeaderBackgroundColor?: string;
+  textColor?: string;
 }
 
 export type AllowElement = (
@@ -202,14 +227,30 @@ const HighlightedCodeBlock = memo(
     code,
     language,
     codePlugin,
+    frozenCodeBlock,
+    mode,
+    staticCodeStrategy,
+    styles,
   }: {
     code: string;
     codePlugin?: CodeHighlighterPlugin;
+    frozenCodeBlock?: FrozenCodeBlock;
     language: string;
+    mode?: "streaming" | "static";
+    staticCodeStrategy?: "freeze" | "plain" | "highlight";
+    styles: ReturnType<typeof createStyles>;
   }) => {
     const [tokens, setTokens] = useState<CodeHighlightToken[][] | null>(null);
 
     useEffect(() => {
+      if (frozenCodeBlock?.tokens) {
+        setTokens(frozenCodeBlock.tokens);
+        return;
+      }
+      if (mode === "static" && staticCodeStrategy !== "highlight") {
+        setTokens(null);
+        return;
+      }
       if (!codePlugin) {
         setTokens(null);
         return;
@@ -226,7 +267,14 @@ const HighlightedCodeBlock = memo(
       if (cached?.tokens) {
         setTokens(cached.tokens);
       }
-    }, [codePlugin, code, language]);
+    }, [
+      codePlugin,
+      code,
+      frozenCodeBlock,
+      language,
+      mode,
+      staticCodeStrategy,
+    ]);
 
     if (!tokens) {
       return <RNText style={styles.codeBlockText}>{code}</RNText>;
@@ -275,6 +323,27 @@ const toString = (node: unknown): string => {
 const renderTextChildren = (children: ReactNode[]): ReactNode =>
   children.length === 0 ? null : children;
 
+const renderViewChildren = (
+  children: ReactNode[],
+  keyPrefix: string,
+  styles: ReturnType<typeof createStyles>
+): ReactNode[] =>
+  children.reduce<ReactNode[]>((result, child, index) => {
+    if (typeof child !== "string") {
+      result.push(child);
+      return result;
+    }
+    if (whitespaceOnlyRegex.test(child)) {
+      return result;
+    }
+    result.push(
+      <RNText key={`${keyPrefix}-text-${index}`} style={styles.paragraph}>
+        {child}
+      </RNText>
+    );
+    return result;
+  }, []);
+
 const renderChildren = (
   node: Root | Element,
   context: RenderContext
@@ -296,6 +365,8 @@ const renderNode = (
   node: Element | Text,
   context: RenderContext
 ): ReactNode | null => {
+  const styles = context.styles;
+
   if (node.type === "text") {
     const shouldAnimate =
       context.isAnimating &&
@@ -433,6 +504,7 @@ const renderNode = (
           height={height}
           key={key}
           src={src}
+          styles={styles}
           width={width}
         />
       );
@@ -445,8 +517,12 @@ const renderNode = (
           <HighlightedCodeBlock
             code={toString(node)}
             codePlugin={context.codePlugin}
+            frozenCodeBlock={context.frozenCodeBlock}
             key={key}
             language={language}
+            mode={context.mode}
+            staticCodeStrategy={context.staticCodeStrategy}
+            styles={context.styles}
           />
         );
       }
@@ -472,7 +548,7 @@ const renderNode = (
     case "blockquote":
       return (
         <View key={key} style={styles.blockquote}>
-          {children}
+          {renderViewChildren(children, key, styles)}
         </View>
       );
     case "hr":
@@ -483,7 +559,7 @@ const renderNode = (
     case "ol":
       return (
         <View key={key} style={styles.list}>
-          {children}
+          {renderViewChildren(children, key, styles)}
         </View>
       );
     case "li": {
@@ -492,27 +568,29 @@ const renderNode = (
       return (
         <View key={key} style={styles.listItemRow}>
           <RNText style={styles.listBullet}>{bullet}</RNText>
-          <View style={styles.listItemBody}>{children}</View>
+          <View style={styles.listItemBody}>
+            {renderViewChildren(children, key, styles)}
+          </View>
         </View>
       );
     }
     case "table":
       return (
         <ScrollView horizontal={true} key={key} style={styles.tableScroll}>
-          <View style={styles.table}>{children}</View>
+          <View style={styles.table}>{renderViewChildren(children, key, styles)}</View>
         </ScrollView>
       );
     case "thead":
     case "tbody":
       return (
         <View key={key} style={styles.tableSection}>
-          {children}
+          {renderViewChildren(children, key, styles)}
         </View>
       );
     case "tr":
       return (
         <View key={key} style={styles.tableRow}>
-          {children}
+          {renderViewChildren(children, key, styles)}
         </View>
       );
     case "th":
@@ -533,7 +611,7 @@ const renderNode = (
       }
       return (
         <View key={key} style={styles.genericBlock}>
-          {children}
+          {renderViewChildren(children, key, styles)}
         </View>
       );
   }
@@ -546,8 +624,12 @@ export interface MarkdownNativeProps {
   disallowedElements?: readonly string[];
   animated?: AnimateOptions;
   codePlugin?: CodeHighlighterPlugin;
+  frozenCodeBlock?: FrozenCodeBlock;
   isAnimating?: boolean;
+  mode?: "streaming" | "static";
   onLinkPress?: (href: string) => void;
+  staticCodeStrategy?: "freeze" | "plain" | "highlight";
+  theme?: MarkdownNativeTheme;
   unwrapDisallowed?: boolean;
   urlTransform?: UrlTransform;
 }
@@ -645,10 +727,12 @@ const MarkdownImage = memo(
     alt,
     width,
     height,
+    styles,
   }: {
     alt: string;
     height?: number;
     src: string;
+    styles: ReturnType<typeof createStyles>;
     width?: number;
   }) => {
     const [hasError, setHasError] = useState(false);
@@ -681,13 +765,18 @@ export const MarkdownNative = memo(
     onLinkPress,
     animated,
     codePlugin,
+    frozenCodeBlock,
     isAnimating,
+    mode = "streaming",
     allowElement,
     allowedElements,
     disallowedElements,
+    staticCodeStrategy = "plain",
+    theme,
     unwrapDisallowed,
     urlTransform,
   }: MarkdownNativeProps) => {
+    const styles = useMemo(() => createStyles(theme), [theme]);
     const tree = useMemo(
       () => processor.runSync(processor.parse(content)) as Root,
       [content]
@@ -702,10 +791,14 @@ export const MarkdownNative = memo(
             onLinkPress,
             animated,
             codePlugin,
+            frozenCodeBlock,
             isAnimating,
+            mode,
             allowElement,
             allowedElements,
             disallowedElements,
+            staticCodeStrategy,
+            styles,
             unwrapDisallowed,
             urlTransform,
           },
@@ -717,10 +810,14 @@ export const MarkdownNative = memo(
         onLinkPress,
         animated,
         codePlugin,
+        frozenCodeBlock,
         isAnimating,
+        mode,
         allowElement,
         allowedElements,
         disallowedElements,
+        staticCodeStrategy,
+        styles,
         unwrapDisallowed,
         urlTransform,
       ]
@@ -733,10 +830,14 @@ export const MarkdownNative = memo(
           onLinkPress,
           animated,
           codePlugin,
+          frozenCodeBlock,
           isAnimating,
+          mode,
           allowElement,
           allowedElements,
           disallowedElements,
+          staticCodeStrategy,
+          styles,
           unwrapDisallowed,
           urlTransform,
         }),
@@ -745,170 +846,201 @@ export const MarkdownNative = memo(
         onLinkPress,
         animated,
         codePlugin,
+        frozenCodeBlock,
         isAnimating,
+        mode,
         allowElement,
         allowedElements,
         disallowedElements,
+        staticCodeStrategy,
+        styles,
         unwrapDisallowed,
         urlTransform,
       ]
     );
 
-    return <View style={styles.container}>{nodes}</View>;
+    return (
+      <View style={styles.container}>
+        {renderViewChildren(nodes, "root-container", styles)}
+      </View>
+    );
   }
 );
 
 MarkdownNative.displayName = "MarkdownNative";
 
-const styles = StyleSheet.create({
-  container: {
-    gap: 8,
-  },
-  genericBlock: {
-    gap: 6,
-  },
-  h1: {
-    fontSize: 30,
-    fontWeight: "700",
-    marginTop: 10,
-    marginBottom: 6,
-    color: "#0f172a",
-  },
-  h2: {
-    fontSize: 24,
-    fontWeight: "700",
-    marginTop: 10,
-    marginBottom: 6,
-    color: "#0f172a",
-  },
-  h3: {
-    fontSize: 20,
-    fontWeight: "700",
-    marginTop: 10,
-    marginBottom: 6,
-    color: "#0f172a",
-  },
-  h4: {
-    fontSize: 16,
-    fontWeight: "700",
-    marginTop: 8,
-    marginBottom: 4,
-    color: "#0f172a",
-  },
-  paragraph: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: "#0f172a",
-  },
-  strong: {
-    fontWeight: "700",
-  },
-  emphasis: {
-    fontStyle: "italic",
-  },
-  link: {
-    color: "#0f62fe",
-    textDecorationLine: "underline",
-  },
-  imageWrapper: {
-    marginVertical: 8,
-  },
-  image: {
-    width: "100%",
-    minHeight: 120,
-    maxHeight: 320,
-    borderRadius: 10,
-    backgroundColor: "#f8fafc",
-  },
-  imageFallback: {
-    color: "#64748b",
-    fontStyle: "italic",
-    marginVertical: 8,
-  },
-  inlineCode: {
-    fontFamily: "Menlo",
-    fontSize: 14,
-    backgroundColor: "#e2e8f0",
-    color: "#0f172a",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  codeBlockWrapper: {
-    backgroundColor: "#f8fafc",
-    borderColor: "#cbd5e1",
-    borderWidth: 1,
-    borderRadius: 10,
-  },
-  codeBlock: {
-    padding: 12,
-    minWidth: "100%",
-  },
-  codeBlockText: {
-    fontFamily: "Menlo",
-    fontSize: 13,
-    lineHeight: 20,
-    color: "#0f172a",
-  },
-  blockquote: {
-    borderLeftColor: "#94a3b8",
-    borderLeftWidth: 4,
-    paddingLeft: 12,
-    marginVertical: 4,
-    gap: 6,
-  },
-  hr: {
-    height: 1,
-    backgroundColor: "#cbd5e1",
-    marginVertical: 6,
-  },
-  list: {
-    gap: 4,
-    marginVertical: 4,
-  },
-  listItemRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 8,
-  },
-  listBullet: {
-    width: 18,
-    fontSize: 16,
-    lineHeight: 24,
-    color: "#0f172a",
-  },
-  listItemBody: {
-    flex: 1,
-    gap: 4,
-  },
-  tableScroll: {
-    borderWidth: 1,
-    borderColor: "#cbd5e1",
-    borderRadius: 8,
-  },
-  table: {
-    minWidth: 320,
-  },
-  tableSection: {
-    gap: 0,
-  },
-  tableRow: {
-    flexDirection: "row",
-    borderBottomWidth: 1,
-    borderBottomColor: "#e2e8f0",
-  },
-  tableHeaderCell: {
-    minWidth: 120,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    fontWeight: "700",
-    color: "#0f172a",
-    backgroundColor: "#f1f5f9",
-  },
-  tableCell: {
-    minWidth: 120,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    color: "#0f172a",
-  },
-});
+const defaultTheme: Required<MarkdownNativeTheme> = {
+  blockquoteBorderColor: "#8D8A84",
+  codeBlockBackgroundColor: "#13100F",
+  codeBlockBorderColor: "rgba(141, 138, 132, 0.35)",
+  codeTextColor: "#F6EFE4",
+  imageBackgroundColor: "#302722",
+  inlineCodeBackgroundColor: "#201918",
+  inlineCodeTextColor: "#F6EFE4",
+  linkColor: "#7AC7D9",
+  mutedTextColor: "#D7B98D",
+  ruleColor: "rgba(141, 138, 132, 0.35)",
+  tableBorderColor: "rgba(141, 138, 132, 0.35)",
+  tableHeaderBackgroundColor: "#302722",
+  textColor: "#F6EFE4",
+};
+
+const createStyles = (theme?: MarkdownNativeTheme) => {
+  const palette = {
+    ...defaultTheme,
+    ...theme,
+  };
+
+  return StyleSheet.create({
+    container: {
+      gap: 8,
+    },
+    genericBlock: {
+      gap: 6,
+    },
+    h1: {
+      fontSize: 30,
+      fontWeight: "700",
+      marginTop: 10,
+      marginBottom: 6,
+      color: palette.textColor,
+    },
+    h2: {
+      fontSize: 24,
+      fontWeight: "700",
+      marginTop: 10,
+      marginBottom: 6,
+      color: palette.textColor,
+    },
+    h3: {
+      fontSize: 20,
+      fontWeight: "700",
+      marginTop: 10,
+      marginBottom: 6,
+      color: palette.textColor,
+    },
+    h4: {
+      fontSize: 16,
+      fontWeight: "700",
+      marginTop: 8,
+      marginBottom: 4,
+      color: palette.textColor,
+    },
+    paragraph: {
+      fontSize: 16,
+      lineHeight: 24,
+      color: palette.textColor,
+    },
+    strong: {
+      fontWeight: "700",
+    },
+    emphasis: {
+      fontStyle: "italic",
+    },
+    link: {
+      color: palette.linkColor,
+      textDecorationLine: "underline",
+    },
+    imageWrapper: {
+      marginVertical: 8,
+    },
+    image: {
+      width: "100%",
+      minHeight: 120,
+      maxHeight: 320,
+      borderRadius: 10,
+      backgroundColor: palette.imageBackgroundColor,
+    },
+    imageFallback: {
+      color: palette.mutedTextColor,
+      fontStyle: "italic",
+      marginVertical: 8,
+    },
+    inlineCode: {
+      fontFamily: "Menlo",
+      fontSize: 14,
+      backgroundColor: palette.inlineCodeBackgroundColor,
+      color: palette.inlineCodeTextColor,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 6,
+    },
+    codeBlockWrapper: {
+      backgroundColor: palette.codeBlockBackgroundColor,
+      borderColor: palette.codeBlockBorderColor,
+      borderWidth: 1,
+      borderRadius: 10,
+    },
+    codeBlock: {
+      padding: 12,
+      minWidth: "100%",
+    },
+    codeBlockText: {
+      fontFamily: "Menlo",
+      fontSize: 13,
+      lineHeight: 20,
+      color: palette.codeTextColor,
+    },
+    blockquote: {
+      borderLeftColor: palette.blockquoteBorderColor,
+      borderLeftWidth: 4,
+      paddingLeft: 12,
+      marginVertical: 4,
+      gap: 6,
+    },
+    hr: {
+      height: 1,
+      backgroundColor: palette.ruleColor,
+      marginVertical: 6,
+    },
+    list: {
+      gap: 4,
+      marginVertical: 4,
+    },
+    listItemRow: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: 8,
+    },
+    listBullet: {
+      width: 18,
+      fontSize: 16,
+      lineHeight: 24,
+      color: palette.textColor,
+    },
+    listItemBody: {
+      flex: 1,
+      gap: 4,
+    },
+    tableScroll: {
+      borderWidth: 1,
+      borderColor: palette.tableBorderColor,
+      borderRadius: 8,
+    },
+    table: {
+      minWidth: 320,
+    },
+    tableSection: {
+      gap: 0,
+    },
+    tableRow: {
+      flexDirection: "row",
+      borderBottomWidth: 1,
+      borderBottomColor: palette.tableBorderColor,
+    },
+    tableHeaderCell: {
+      minWidth: 120,
+      paddingVertical: 8,
+      paddingHorizontal: 10,
+      fontWeight: "700",
+      color: palette.textColor,
+      backgroundColor: palette.tableHeaderBackgroundColor,
+    },
+    tableCell: {
+      minWidth: 120,
+      paddingVertical: 8,
+      paddingHorizontal: 10,
+      color: palette.textColor,
+    },
+  });
+};

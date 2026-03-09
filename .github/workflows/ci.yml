@@ -1,0 +1,61 @@
+name: CI/CD
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    env:
+      PACKAGE_REGISTRY_URL: ${{ secrets.PACKAGE_REGISTRY_URL }}
+      PACKAGE_REGISTRY_TOKEN: ${{ secrets.PACKAGE_REGISTRY_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup npm auth for private registry
+        if: env.PACKAGE_REGISTRY_TOKEN != ''
+        run: |
+          set -euo pipefail
+          registry_url="${PACKAGE_REGISTRY_URL:-https://git.waffleophagus.com/api/packages/waffleophagus/npm/}"
+          registry_host="${registry_url#https://}"
+          registry_host="${registry_host#http://}"
+          registry_host="${registry_host%/}"
+          {
+            echo "//${registry_host}/:_authToken=${PACKAGE_REGISTRY_TOKEN}"
+            echo "@streamdown:registry=${registry_url}"
+            echo "always-auth=true"
+          } >> "${HOME}/.npmrc"
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build packages
+        run: bun run build:packages:ci
+
+      - name: Run tests
+        run: bun run test
+
+      - name: Check linting and formatting
+        run: bun run check
+
+      - name: Publish packages
+        if: (github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')) && env.PACKAGE_REGISTRY_TOKEN != ''
+        run: bun run publish:packages
+

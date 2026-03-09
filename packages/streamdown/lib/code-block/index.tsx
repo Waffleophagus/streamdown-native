@@ -15,6 +15,7 @@ type CodeBlockProps = HTMLAttributes<HTMLDivElement> & {
   isIncomplete?: boolean;
   /** Custom starting line number for line numbering (default: 1) */
   startLine?: number;
+  snapshotResult?: HighlightResult;
 };
 
 const HighlightedCodeBlockBody = lazy(() =>
@@ -30,6 +31,7 @@ export const CodeBlock = ({
   children,
   isIncomplete = false,
   startLine,
+  snapshotResult,
   ...rest
 }: CodeBlockProps) => {
   const cn = useCn();
@@ -77,26 +79,36 @@ export const CodeBlock = ({
             </div>
           </div>
         ) : null}
-        <Suspense
-          fallback={
-            <CodeBlockBody
-              className={className}
-              language={language}
-              result={raw}
-              startLine={startLine}
-              {...rest}
-            />
-          }
-        >
-          <HighlightedCodeBlockBody
+        {snapshotResult ? (
+          <CodeBlockBody
             className={className}
-            code={trimmedCode}
             language={language}
-            raw={raw}
+            result={snapshotResult}
             startLine={startLine}
             {...rest}
           />
-        </Suspense>
+        ) : (
+          <Suspense
+            fallback={
+              <CodeBlockBody
+                className={className}
+                language={language}
+                result={raw}
+                startLine={startLine}
+                {...rest}
+              />
+            }
+          >
+            <HighlightedCodeBlockBody
+              className={className}
+              code={trimmedCode}
+              language={language}
+              raw={raw}
+              startLine={startLine}
+              {...rest}
+            />
+          </Suspense>
+        )}
       </CodeBlockContainer>
     </CodeBlockContext.Provider>
   );

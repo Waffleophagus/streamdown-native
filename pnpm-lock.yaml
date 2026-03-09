@@ -507,8 +507,8 @@ importers:
         specifier: ^17.0.1
         version: 17.0.1
       remend:
-        specifier: workspace:*
-        version: link:../remend
+        specifier: ^1.2.2
+        version: 1.2.2
     devDependencies:
       '@vitest/coverage-v8':
         specifier: ^4.0.15
@@ -588,11 +588,14 @@ importers:
         specifier: '>=0.74.0'
         version: 0.84.1(@babel/core@7.28.6)(@types/react@19.2.8)(react@19.2.3)
       react-native-reanimated:
-        specifier: '>=3.0.0'
-        version: 4.2.2(react-native-worklets@0.7.4(@babel/core@7.28.6)(react-native@0.84.1(@babel/core@7.28.6)(@types/react@19.2.8)(react@19.2.3))(react@19.2.3))(react-native@0.84.1(@babel/core@7.28.6)(@types/react@19.2.8)(react@19.2.3))(react@19.2.3)
+        specifier: ~4.0.1
+        version: 4.0.3(@babel/core@7.28.6)(react-native-worklets@0.5.1(@babel/core@7.28.6)(react-native@0.84.1(@babel/core@7.28.6)(@types/react@19.2.8)(react@19.2.3))(react@19.2.3))(react-native@0.84.1(@babel/core@7.28.6)(@types/react@19.2.8)(react@19.2.3))(react@19.2.3)
       react-native-url-polyfill:
         specifier: ^2.0.0
         version: 2.0.0(react-native@0.84.1(@babel/core@7.28.6)(@types/react@19.2.8)(react@19.2.3))
+      react-native-worklets:
+        specifier: 0.5.1
+        version: 0.5.1(@babel/core@7.28.6)(react-native@0.84.1(@babel/core@7.28.6)(@types/react@19.2.8)(react@19.2.3))(react@19.2.3)
       remark-gfm:
         specifier: ^4.0.1
         version: 4.0.1
@@ -5362,12 +5365,13 @@ packages:
       react: '*'
       react-native: '*'
 
-  react-native-reanimated@4.2.2:
-    resolution: {integrity: sha512-o3kKvdD8cVlg12Z4u3jv0MFAt53QV4k7gD9OLwQqU8eZLyd8QvaOjVZIghMZhC2pjP93uUU44PlO5JgF8S4Vxw==}
+  react-native-reanimated@4.0.3:
+    resolution: {integrity: sha512-apXILxR2gRi3n0Xi0UILr+72vXj1etooOId/4nCgzKfNnvcp+dRzt7UQdFU0/nc+4bPWlSsiIskDxdYXr2KNmw==}
     peerDependencies:
+      '@babel/core': ^7.0.0-0
       react: '*'
       react-native: '*'
-      react-native-worklets: '>=0.7.0'
+      react-native-worklets: '>=0.4.0'
 
   react-native-shiki-engine@0.3.9:
     resolution: {integrity: sha512-FoCzxk6ODGqbYFXRAgnrZ+ZTt5gbCfvwxxobuvGtvjIAK3GtjV6gOImldgI2hB/oelwqw1gksrFjpN3BqE7jKA==}
@@ -5380,10 +5384,10 @@ packages:
     peerDependencies:
       react-native: '*'
 
-  react-native-worklets@0.7.4:
-    resolution: {integrity: sha512-NYOdM1MwBb3n+AtMqy1tFy3Mn8DliQtd8sbzAVRf9Gc+uvQ0zRfxN7dS8ZzoyX7t6cyQL5THuGhlnX+iFlQTag==}
+  react-native-worklets@0.5.1:
+    resolution: {integrity: sha512-lJG6Uk9YuojjEX/tQrCbcbmpdLCSFxDK1rJlkDhgqkVi1KZzG7cdcBFQRqyNOOzR9Y0CXNuldmtWTGOyM0k0+w==}
     peerDependencies:
-      '@babel/core': '*'
+      '@babel/core': ^7.0.0-0
       react: '*'
       react-native: '*'
 
@@ -5569,6 +5573,9 @@ packages:
   remark@15.0.1:
     resolution: {integrity: sha512-Eht5w30ruCXgFmxVUSlNWQ9iiimq07URKeFS3hNc8cUWy1llX4KDWfyEDZRycMc+znsN9Ux5/tJ/BFdgdOwA3A==}
 
+  remend@1.2.2:
+    resolution: {integrity: sha512-4ZJgIB9EG9fQE41mOJCRHMmnxDTKHWawQoJWZyUbZuj680wVyogu2ihnj8Edqm7vh2mo/TWHyEZpn2kqeDvS7w==}
+
   require-directory@2.1.1:
     resolution: {integrity: sha512-fGxEI7+wsG9xrvdjsrlmL22OMTTiHRwAMroiEeMgq8gzoLC/PQr7RsRDSTLUg/bZAZtF+TVIkHc6/4RIKrui+Q==}
     engines: {node: '>=0.10.0'}
@@ -5632,6 +5639,11 @@ packages:
 
   semver@6.3.1:
     resolution: {integrity: sha512-BR7VvDCVHO+q2xBEWskxS6DJE1qRnb7DxzUrogb71CWoSficBxYsiAGd+Kl0mmq/MprG9yArRkyrQxTO6XjMzA==}
+    hasBin: true
+
+  semver@7.7.2:
+    resolution: {integrity: sha512-RF0Fw+rO5AMf9MAyaRXI4AV0Ulj5lMHqVxxdSgiVbixSCXoEmmX/jk0CuJw4+3SqroYO9VoUh+HcuJivvtJemA==}
+    engines: {node: '>=10'}
     hasBin: true
 
   semver@7.7.3:
@@ -11901,13 +11913,14 @@ snapshots:
       react: 19.2.3
       react-native: 0.84.1(@babel/core@7.28.6)(@types/react@19.2.8)(react@19.2.3)
 
-  react-native-reanimated@4.2.2(react-native-worklets@0.7.4(@babel/core@7.28.6)(react-native@0.84.1(@babel/core@7.28.6)(@types/react@19.2.8)(react@19.2.3))(react@19.2.3))(react-native@0.84.1(@babel/core@7.28.6)(@types/react@19.2.8)(react@19.2.3))(react@19.2.3):
+  react-native-reanimated@4.0.3(@babel/core@7.28.6)(react-native-worklets@0.5.1(@babel/core@7.28.6)(react-native@0.84.1(@babel/core@7.28.6)(@types/react@19.2.8)(react@19.2.3))(react@19.2.3))(react-native@0.84.1(@babel/core@7.28.6)(@types/react@19.2.8)(react@19.2.3))(react@19.2.3):
     dependencies:
+      '@babel/core': 7.28.6
       react: 19.2.3
       react-native: 0.84.1(@babel/core@7.28.6)(@types/react@19.2.8)(react@19.2.3)
       react-native-is-edge-to-edge: 1.2.1(react-native@0.84.1(@babel/core@7.28.6)(@types/react@19.2.8)(react@19.2.3))(react@19.2.3)
-      react-native-worklets: 0.7.4(@babel/core@7.28.6)(react-native@0.84.1(@babel/core@7.28.6)(@types/react@19.2.8)(react@19.2.3))(react@19.2.3)
-      semver: 7.7.3
+      react-native-worklets: 0.5.1(@babel/core@7.28.6)(react-native@0.84.1(@babel/core@7.28.6)(@types/react@19.2.8)(react@19.2.3))(react@19.2.3)
+      semver: 7.7.2
 
   react-native-shiki-engine@0.3.9(react-native@0.84.1(@babel/core@7.28.6)(@types/react@19.2.8)(react@19.2.3))(react@19.2.3):
     dependencies:
@@ -11921,7 +11934,7 @@ snapshots:
       react-native: 0.84.1(@babel/core@7.28.6)(@types/react@19.2.8)(react@19.2.3)
       whatwg-url-without-unicode: 8.0.0-3
 
-  react-native-worklets@0.7.4(@babel/core@7.28.6)(react-native@0.84.1(@babel/core@7.28.6)(@types/react@19.2.8)(react@19.2.3))(react@19.2.3):
+  react-native-worklets@0.5.1(@babel/core@7.28.6)(react-native@0.84.1(@babel/core@7.28.6)(@types/react@19.2.8)(react@19.2.3))(react@19.2.3):
     dependencies:
       '@babel/core': 7.28.6
       '@babel/plugin-transform-arrow-functions': 7.27.1(@babel/core@7.28.6)
@@ -11936,7 +11949,7 @@ snapshots:
       convert-source-map: 2.0.0
       react: 19.2.3
       react-native: 0.84.1(@babel/core@7.28.6)(@types/react@19.2.8)(react@19.2.3)
-      semver: 7.7.3
+      semver: 7.7.2
     transitivePeerDependencies:
       - supports-color
 
@@ -12244,6 +12257,8 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  remend@1.2.2: {}
+
   require-directory@2.1.1: {}
 
   require-from-string@2.0.2: {}
@@ -12322,6 +12337,8 @@ snapshots:
       compute-scroll-into-view: 3.1.1
 
   semver@6.3.1: {}
+
+  semver@7.7.2: {}
 
   semver@7.7.3: {}
 

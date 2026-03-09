@@ -15,6 +15,7 @@ import {
 } from "react";
 // BundledLanguage type removed - we now support any language string
 import { type ControlsConfig, StreamdownContext } from "../index";
+import { useBlockSnapshot } from "./block-snapshot-context";
 import { useIsCodeFenceIncomplete } from "./block-incomplete-context";
 import { CodeBlock } from "./code-block";
 import { CodeBlockCopyButton } from "./code-block/copy-button";
@@ -790,6 +791,7 @@ const CodeComponent = ({
     useContext(StreamdownContext);
   const mermaidPlugin = useMermaidPlugin();
   const isBlockIncomplete = useIsCodeFenceIncomplete();
+  const blockSnapshot = useBlockSnapshot();
 
   const match = className?.match(LANGUAGE_REGEX);
   const language = match?.at(1) ?? "";
@@ -930,6 +932,15 @@ const CodeComponent = ({
       code={code}
       isIncomplete={isBlockIncomplete}
       language={language}
+      snapshotResult={
+        blockSnapshot
+          ? {
+              bg: "transparent",
+              fg: "inherit",
+              tokens: blockSnapshot.tokens,
+            }
+          : undefined
+      }
       startLine={startLine}
     >
       {showCodeControls ? (
