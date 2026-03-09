@@ -78,8 +78,12 @@ interface LanguageGrammar {
   scopeName?: string;
 }
 
+type BundledHighlighterOptions = Parameters<typeof createBundledHighlighter>[0];
+type BundledLanguageInput = BundledHighlighterOptions["langs"][string];
+type BundledThemeInput = BundledHighlighterOptions["themes"][string];
+
 const bundledLanguageLoaders = bundledLanguages as
-  | Record<string, unknown>
+  | Record<string, () => Promise<unknown>>
   | undefined;
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
@@ -305,23 +309,27 @@ export function createNativeCodePlugin(
   }
 
   const engine = createNativeEngine();
-  const bundledLangMap: Record<string, unknown> = {};
+  const bundledLangMap: Record<string, BundledLanguageInput> = {};
   for (const [index, input] of langs.entries()) {
     const ids = new Set<string>();
     collectInputLanguageIds(ids, input);
     for (const id of ids) {
       if (id.length > 0 && !(id in bundledLangMap)) {
-        bundledLangMap[id] = toBundledLanguageInput(input, `langs[${index}]`);
+        bundledLangMap[id] = toBundledLanguageInput(
+          input,
+          `langs[${index}]`
+        ) as BundledLanguageInput;
       }
     }
   }
-  const bundledThemeMap = Object.fromEntries(
-    themes.map((theme, index) => [themeNames[index], theme])
-  );
+  const bundledThemeMap: Record<string, BundledThemeInput> = {};
+  for (const [index, themeName] of themeNames.entries()) {
+    bundledThemeMap[themeName] = themes[index] as BundledThemeInput;
+  }
   const createHighlighter = createBundledHighlighter({
     engine: () => engine,
-    langs: bundledLangMap as Record<string, unknown>,
-    themes: bundledThemeMap as Record<string, unknown>,
+    langs: bundledLangMap,
+    themes: bundledThemeMap,
   });
   const getHighlighter = makeSingletonHighlighter(createHighlighter);
   const tokenCache = new Map<string, HighlightResult>();
